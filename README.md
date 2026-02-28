@@ -1,66 +1,81 @@
 # when-to-exit
 
-Node.js service that listens to Home Front Command alerts in Telegram and sends a
-"safe to leave the safe room" message after 10 minutes without new alerts for
-configured towns.
+Telegram-based Home Front alert watcher that sends a **"safe to leave"** message
+after a configurable quiet window (default: 10 minutes) per monitored town.
 
-## Features
+## What it does
 
-- Reads channel posts using Telegram MTProto (user account session).
-- Parses Hebrew alert format and extracts settlements/towns.
-- Supports base-city matching:
-  - If `MONITORED_TOWNS` includes `באר שבע`, it also matches alerts like
-    `באר שבע - דרום`, `באר שבע - מזרח`, etc.
-- Keeps independent resettable timers per monitored town.
+- Listens to a Telegram alert channel via MTProto (user session).
+- Parses Hebrew alert messages and extracts settlements/towns.
+- Matches configured towns, including base-city variants:
+  - `באר שבע` matches `באר שבע - דרום/מזרח/מערב/צפון`.
+- Keeps independent timers per monitored town:
+  - new alert for same town resets timer.
+  - timer is anchored to **alert time** (not processing time).
+- Sends notifications to one or many Telegram targets.
+- Includes link to the last matching alert in the notification.
+- Optional startup replay of alerts from the last `N` minutes.
+- Ignores "upcoming warning" bulletins (not real current alerts), e.g.:
+  - `בדקות הקרובות צפויות להתקבל התרעות באזורך`
 
-## Setup
+## Quick start
 
 1. Install dependencies:
    - `npm install`
-2. Copy env template:
+2. Create env file:
    - `cp .env.example .env`
 3. Fill required values in `.env`:
    - `TELEGRAM_API_ID`
    - `TELEGRAM_API_HASH`
    - `SOURCE_CHANNEL`
    - `TARGET_CHAT_IDS` (preferred, comma-separated) or `TARGET_CHAT_ID`
-   - `MONITORED_TOWNS` (for example: `עומר, באר שבע`)
-   - Optional replay controls:
-     - `FETCH_PAST_ALERTS_ON_START=true|false` (default `false`)
-     - `PAST_ALERTS_MINUTES` (default equals `TIMER_MINUTES`)
+   - `MONITORED_TOWNS` (example: `עומר, באר שבע`)
+4. Run:
+   - `npm start`
 
-## First Run Authentication
+## First-time Telegram login
 
 If `TELEGRAM_SESSION_STRING` is empty:
-- Set `TELEGRAM_PHONE`.
+
 - Run `npm start`.
-- Enter Telegram login code (and 2FA password if enabled).
-- The app prints a `TELEGRAM_SESSION_STRING`.
-- Save this value in `.env` and remove `TELEGRAM_PHONE` for future runs.
+- Enter phone/code/2FA when prompted.
+- Copy the printed `TELEGRAM_SESSION_STRING` into `.env`.
+- Future runs can use the session string without interactive login.
 
-## Run
+## Configuration
 
-- Development mode: `npm run dev`
-- Normal mode: `npm start`
+See `.env.example` for full reference.
 
-## Behavior
+- `TIMER_MINUTES`  
+  Quiet window per town (default `10`).
+- `TARGET_CHAT_IDS`  
+  Comma-separated list of recipient chat/user IDs.
+- `FETCH_PAST_ALERTS_ON_START`  
+  `true|false`, default `false`.
+- `PAST_ALERTS_MINUTES`  
+  Replay lookback window; defaults to `TIMER_MINUTES`.
 
-- On every incoming alert message, app checks whether any monitored town is in
-  the alert text.
-- Optional on startup: if `FETCH_PAST_ALERTS_ON_START=true`, app first pulls past
-  messages from the source channel for the last `PAST_ALERTS_MINUTES` minutes
-  (or `TIMER_MINUTES` if not set) and processes them before switching to live mode.
-- For each matched monitored town:
-  - Start a 10-minute timer if not running.
-  - Reset timer back to 10 minutes if already running.
-- When timer expires, app sends a private Telegram message to each configured
-  target in `TARGET_CHAT_IDS` (or single `TARGET_CHAT_ID`):
-  - `אין התרעות חדשות עבור <town> ... אפשר לצאת מהמרחב המוגן.`
-  - Includes a link to the latest matching alert message when available.
+## Runtime logs
 
-## Quick Test
+Helpful log categories:
 
-Set `TIMER_MINUTES=1` in `.env`, then:
-- Send one alert containing a monitored town -> timer starts.
-- Send another alert for same town within a minute -> timer resets.
-- Wait one full minute without new alert -> one "safe to leave" message arrives.
+- `SOURCE` / `Telegram probe` — channel resolution/access checks.
+- `HISTORY` — startup replay fetch and filtering.
+- `RECEIVED` / `PARSE` / `MATCH` — per-message pipeline.
+- `START` / `RESET` / `SKIP_OLD` — timer state changes.
+- `STATUS` — every 15s while pending timers exist.
+- `EXPIRE_TRIGGER` / `NOTIFY` — notification execution and delivery result.
+- `FILTER` — skipped upcoming-warning messages.
+
+## Scripts
+
+- `npm start` — run service.
+- `npm run dev` — run with watch mode.
+- `npm test` — run test suite.
+- `npm run test:coverage` — run tests with coverage report.
+
+## Safety notes
+
+- Timers are in-memory (process restart clears active timers).
+- This tool is an aid and not an official life-safety authority.
+- Always follow official Home Front Command instructions.
