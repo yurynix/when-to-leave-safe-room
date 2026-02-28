@@ -134,7 +134,7 @@ export async function createTelegramGateway(config, logger = console) {
           logger.error(`[Telegram] Handler failed for message #${event.message.id}`, error);
         }
       },
-      new NewMessage({ chats: [sourceEntity] }),
+      new NewMessage({ chats: [sourceId] }),
     );
   }
 
