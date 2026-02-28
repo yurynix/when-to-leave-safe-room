@@ -3,6 +3,16 @@
 Telegram-based Home Front alert watcher that sends a **"safe to leave"** message
 after a configurable quiet window (default: 10 minutes) per monitored town.
 
+## ⚠️ Critical warning
+
+> **Do not rely on this bot as an official life-safety authority.**
+>
+> Always wait for the official **Home Front Command** instruction that it is safe
+> to leave the protected area.
+>
+> This project was **vibe-coded** and may contain mistakes, bugs, parsing errors,
+> or unsafe assumptions.
+
 ## What it does
 
 - Listens to a Telegram alert channel via MTProto (user session).
