@@ -87,6 +87,7 @@ export function loadConfig() {
     telegramApiHash: required("TELEGRAM_API_HASH"),
     telegramSession: optional("TELEGRAM_SESSION_STRING"),
     telegramPhone: optional("TELEGRAM_PHONE"),
+    telegramHealthcheckIntervalSeconds: parsePositiveInt("TELEGRAM_HEALTHCHECK_INTERVAL_SECONDS", 30),
     sourceChannel: required("SOURCE_CHANNEL"),
     targetChatIds: parseTargetChatIds(),
     monitoredTowns,

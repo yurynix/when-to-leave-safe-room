@@ -142,3 +142,15 @@ test("real safe-exit update example is classified and matched", () => {
   assert.equal(matched.has("שדרות"), true);
   assert.equal(matched.has("עומר"), false);
 });
+
+test("safe-exit message without עדכון header is still classified correctly", () => {
+  const message = `ניתן לצאת מהמרחב המוגן אך יש להישאר בקרבתו
+באזורים הבאים ניתן לצאת מהמרחב המוגן, אך יש להישאר בקרבתו.
+אזור קו העימות
+אביבים, אבן מנחם, אדמית`;
+
+  assert.equal(classifyMessageType(message), "safe_exit_update");
+  const { messageType, matched } = matchConfiguredTowns(message, ["אביבים"]);
+  assert.equal(messageType, "safe_exit_update");
+  assert.equal(matched.has("אביבים"), true);
+});

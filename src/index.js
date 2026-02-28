@@ -64,6 +64,34 @@ async function main() {
     console.info(`[STATUS] Pending notifications (${pending.length}) -> ${summary}`);
   }, 15_000);
 
+  let healthCheckInFlight = false;
+  let lastHealthOk = true;
+  const healthIntervalMs = config.telegramHealthcheckIntervalSeconds * 1000;
+  const healthTimer = setInterval(async () => {
+    if (healthCheckInFlight) {
+      return;
+    }
+    healthCheckInFlight = true;
+    try {
+      const health = await telegram.checkConnectionHealth();
+      if (health.ok) {
+        if (!lastHealthOk || health.recovered) {
+          console.info("[HEALTH] Telegram connection healthy (recovered)");
+        }
+        lastHealthOk = true;
+      } else {
+        lastHealthOk = false;
+        console.error(`[HEALTH] Telegram connection unhealthy: ${health.errorMessage}`);
+      }
+    } catch (error) {
+      lastHealthOk = false;
+      console.error("[HEALTH] Telegram health check crashed:", error);
+    } finally {
+      healthCheckInFlight = false;
+    }
+  }, healthIntervalMs);
+  healthTimer.unref?.();
+
   async function processAlertMessage({ text, messageId, date, source }) {
     if (processedMessageIds.has(messageId)) {
       console.info(`[RECEIVED] #${messageId} from ${source} skipped (already processed)`);
@@ -133,6 +161,11 @@ async function main() {
     }
   }
 
+  // Subscribe live first so replay processing does not create a blind spot.
+  telegram.onSourceMessage(async (message) => {
+    await processAlertMessage({ ...message, source: "live" });
+  });
+
   if (config.fetchPastAlertsOnStart) {
     console.info(
       `[HISTORY] Loading past alerts from last ${config.pastAlertsMinutes} minute(s)`,
@@ -146,15 +179,12 @@ async function main() {
     console.info("[HISTORY] Disabled (FETCH_PAST_ALERTS_ON_START=false)");
   }
 
-  telegram.onSourceMessage(async (message) => {
-    await processAlertMessage({ ...message, source: "live" });
-  });
-
   console.info(
     `Listening for alerts from "${telegram.sourceChannelMeta.resolvedSourceChannel}" and notifying "${config.targetChatIds.join(", ")}"`,
   );
   console.info(`Monitored towns: ${config.monitoredTowns.join(", ")}`);
   console.info(`Quiet window timer: ${config.timerMinutes} minute(s)`);
+  console.info(`Telegram health check interval: ${config.telegramHealthcheckIntervalSeconds}s`);
   console.info(
     `Past-alert replay: ${config.fetchPastAlertsOnStart ? "enabled" : "disabled"} (lookback: ${config.pastAlertsMinutes}m)`,
   );

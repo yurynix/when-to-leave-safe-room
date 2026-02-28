@@ -180,6 +180,41 @@ export async function createTelegramGateway(config, logger = console) {
     return recent;
   }
 
+  async function checkConnectionHealth() {
+    const wasConnected = Boolean(client.connected);
+    if (!wasConnected) {
+      logger.warn?.("[HEALTH] Telegram client reports disconnected, attempting reconnect...");
+      try {
+        await client.connect();
+      } catch (error) {
+        return {
+          ok: false,
+          wasConnected,
+          isConnected: Boolean(client.connected),
+          errorMessage: `Reconnect failed: ${error?.message || String(error)}`,
+        };
+      }
+    }
+
+    try {
+      // Lightweight authenticated call to verify session + connectivity.
+      await client.getMe();
+      return {
+        ok: true,
+        wasConnected,
+        isConnected: Boolean(client.connected),
+        recovered: !wasConnected && Boolean(client.connected),
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        wasConnected,
+        isConnected: Boolean(client.connected),
+        errorMessage: `Health API check failed: ${error?.message || String(error)}`,
+      };
+    }
+  }
+
   function buildSourceMessageLink(messageId) {
     return buildSourceMessageLinkFromMeta(sourceUsername, sourceId, messageId);
   }
@@ -189,6 +224,7 @@ export async function createTelegramGateway(config, logger = console) {
     onSourceMessage,
     sendText,
     getRecentSourceMessages,
+    checkConnectionHealth,
     buildSourceMessageLink,
     verifySourceChannelAccess,
     sourceChannelMeta: {

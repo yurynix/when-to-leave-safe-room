@@ -30,7 +30,11 @@ export function classifyMessageType(alertText) {
     return "upcoming_warning";
   }
 
-  if (firstLine.includes("עדכון") && alertText.includes(SAFE_EXIT_PHRASE)) {
+  if (
+    alertText.includes(SAFE_EXIT_PHRASE) ||
+    alertText.includes(SAFE_EXIT_AREAS_PHRASE) ||
+    firstLine.includes("עדכון")
+  ) {
     return "safe_exit_update";
   }
 

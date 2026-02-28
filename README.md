@@ -64,6 +64,8 @@ See `.env.example` for full reference.
   `true|false`, default `false`.
 - `PAST_ALERTS_MINUTES`  
   Replay lookback window; defaults to `TIMER_MINUTES`.
+- `TELEGRAM_HEALTHCHECK_INTERVAL_SECONDS`  
+  Active Telegram connection health-check interval; default `30`.
 
 ## Runtime logs
 
@@ -74,6 +76,7 @@ Helpful log categories:
 - `RECEIVED` / `PARSE` / `MATCH` — per-message pipeline.
 - `START` / `RESET` / `SKIP_OLD` — timer state changes.
 - `STATUS` — every 15s while pending timers exist.
+- `HEALTH` — Telegram connectivity failures/recovery events.
 - `EXPIRE_TRIGGER` / `NOTIFY` — notification execution and delivery result.
 - `FILTER` — skipped upcoming-warning messages.
 

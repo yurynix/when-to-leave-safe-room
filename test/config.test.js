@@ -34,6 +34,7 @@ test("loadConfig parses required fields and defaults", () => {
   assert.equal(config.sourceChannel, "@homefront");
   assert.deepEqual(config.targetChatIds, ["777000"]);
   assert.deepEqual(config.monitoredTowns, ["עומר", "באר שבע"]);
+  assert.equal(config.telegramHealthcheckIntervalSeconds, 30);
   assert.equal(config.timerMinutes, 10);
   assert.equal(config.fetchPastAlertsOnStart, false);
   assert.equal(config.pastAlertsMinutes, 10);
@@ -104,5 +105,16 @@ test("loadConfig throws when no target chat config is provided", () => {
   assert.throws(
     () => loadConfig(),
     /Missing target chat configuration: set TARGET_CHAT_IDS \(preferred\) or TARGET_CHAT_ID/,
+  );
+});
+
+test("loadConfig validates positive telegram health-check interval", () => {
+  resetEnv();
+  applyBaseEnv();
+  process.env.TELEGRAM_HEALTHCHECK_INTERVAL_SECONDS = "0";
+
+  assert.throws(
+    () => loadConfig(),
+    /TELEGRAM_HEALTHCHECK_INTERVAL_SECONDS must be a positive integer/,
   );
 });
