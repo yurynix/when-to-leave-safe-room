@@ -69,6 +69,18 @@ export class TownTimerManager {
     this.timers.clear();
   }
 
+  clearTown(town, reason = "") {
+    const existing = this.timers.get(town);
+    if (!existing) {
+      return false;
+    }
+
+    clearTimeout(existing.timeout);
+    this.timers.delete(town);
+    this.logger.info(`[CLEAR] ${town}${reason ? ` (${reason})` : ""}`);
+    return true;
+  }
+
   getPendingStatuses(nowMs = Date.now()) {
     const pending = [];
 

@@ -164,3 +164,23 @@ test("getPendingStatuses returns empty when no active timers", () => {
 
   assert.deepEqual(manager.getPendingStatuses(), []);
 });
+
+test("clearTown removes only the requested town timer", () => {
+  const manager = new TownTimerManager({
+    durationMs: 1000,
+    onExpire: async () => {},
+    logger: { info: () => {}, error: () => {} },
+  });
+
+  manager.upsert("עומר", ["עומר"], new Date());
+  manager.upsert("באר שבע", ["באר שבע - דרום"], new Date());
+
+  const removed = manager.clearTown("עומר", "test");
+  assert.equal(removed, true);
+
+  const pending = manager.getPendingStatuses();
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].town, "באר שבע");
+
+  manager.clearAll();
+});

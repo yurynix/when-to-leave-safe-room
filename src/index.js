@@ -1,5 +1,5 @@
 import { loadConfig } from "./config.js";
-import { matchConfiguredTowns, shouldIgnoreAlertMessage } from "./parser.js";
+import { classifyMessageType, matchConfiguredTowns, shouldIgnoreAlertMessage } from "./parser.js";
 import { createTelegramGateway } from "./telegram.js";
 import { TownTimerManager } from "./timers.js";
 
@@ -9,6 +9,14 @@ function buildSafeMessage(town, timerMinutes, lastAlertLink) {
     return base;
   }
   return `${base}\n\nהתרעה אחרונה: ${lastAlertLink}`;
+}
+
+function buildImmediateSafeUpdateMessage(town, lastAlertLink) {
+  const base = `עדכון פיקוד העורף: באזור ${town} ניתן לצאת מהמרחב המוגן, אך יש להישאר בקרבתו.`;
+  if (!lastAlertLink) {
+    return base;
+  }
+  return `${base}\n\nעדכון רשמי: ${lastAlertLink}`;
 }
 
 async function main() {
@@ -73,12 +81,14 @@ async function main() {
       return;
     }
 
-    const { alertTowns, matched } = matchConfiguredTowns(text, config.monitoredTowns);
+    const { alertTowns, matched, messageType } = matchConfiguredTowns(text, config.monitoredTowns);
+    const classified = classifyMessageType(text);
     console.info(
       `[PARSE] #${messageId} extracted ${alertTowns.length} town(s): ${
         alertTowns.length ? alertTowns.join(", ") : "none"
       }`,
     );
+    console.info(`[TYPE] #${messageId} classified as ${classified}`);
 
     if (matched.size === 0) {
       console.info(`[MATCH] #${messageId} no monitored towns matched`);
@@ -89,6 +99,31 @@ async function main() {
       .map(([monitoredTown, variants]) => `${monitoredTown} <= [${variants.join(", ")}]`)
       .join(" | ");
     console.info(`[MATCH] #${messageId} monitored match(es): ${matchedSummary}`);
+
+    if (messageType === "safe_exit_update") {
+      for (const [monitoredTown] of matched.entries()) {
+        timerManager.clearTown(monitoredTown, "official safe-exit update");
+        const immediateMessage = buildImmediateSafeUpdateMessage(
+          monitoredTown,
+          telegram.buildSourceMessageLink(messageId),
+        );
+        for (const targetChatId of config.targetChatIds) {
+          try {
+            console.info(
+              `[NOTIFY_IMMEDIATE] Sending official safe-exit update for "${monitoredTown}" to ${targetChatId}`,
+            );
+            await telegram.sendText(immediateMessage, targetChatId);
+            console.info(`[NOTIFY_IMMEDIATE] Sent to ${targetChatId}: ${immediateMessage}`);
+          } catch (error) {
+            console.error(
+              `[NOTIFY_IMMEDIATE] Failed sending update for "${monitoredTown}" to ${targetChatId}`,
+              error,
+            );
+          }
+        }
+      }
+      return;
+    }
 
     for (const [monitoredTown, matchingAlertTowns] of matched.entries()) {
       timerManager.upsert(monitoredTown, matchingAlertTowns, date, {

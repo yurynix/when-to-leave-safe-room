@@ -1,6 +1,8 @@
 const HEBREW_DASH = /[־–—]/g;
 const MULTI_SPACE = /\s+/g;
 const UPCOMING_WARNING_PHRASE = "בדקות הקרובות צפויות להתקבל התרעות באזורך";
+const SAFE_EXIT_PHRASE = "ניתן לצאת מהמרחב המוגן";
+const SAFE_EXIT_AREAS_PHRASE = "באזורים הבאים ניתן לצאת מהמרחב המוגן";
 
 export function normalizeTownName(value) {
   return value
@@ -14,21 +16,47 @@ export function shouldIgnoreAlertMessage(alertText) {
   return alertText.includes(UPCOMING_WARNING_PHRASE);
 }
 
+function firstNonEmptyLine(alertText) {
+  const lines = alertText
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines[0] || "";
+}
+
+export function classifyMessageType(alertText) {
+  const firstLine = firstNonEmptyLine(alertText);
+  if (alertText.includes(UPCOMING_WARNING_PHRASE)) {
+    return "upcoming_warning";
+  }
+
+  if (firstLine.includes("עדכון") && alertText.includes(SAFE_EXIT_PHRASE)) {
+    return "safe_exit_update";
+  }
+
+  return "alert";
+}
+
 function looksLikeHeaderOrInstruction(line) {
   return (
     (line.startsWith("אזור ") && !line.includes("(")) ||
     line.includes("היכנסו למרחב המוגן") ||
-    line.startsWith("ירי רקטות וטילים")
+    line.startsWith("ירי רקטות וטילים") ||
+    line.startsWith("🚨 ירי רקטות וטילים") ||
+    line.startsWith("🚨 מבזק") ||
+    line.startsWith("🚨 עדכון") ||
+    line.includes(SAFE_EXIT_AREAS_PHRASE) ||
+    line.includes(SAFE_EXIT_PHRASE)
   );
 }
 
-function parseTownLine(line) {
+function parseTownLine(line, { allowWithoutBracket = false } = {}) {
   const bracketIndex = line.indexOf("(");
-  if (bracketIndex === -1) {
+  if (bracketIndex === -1 && !allowWithoutBracket) {
     return [];
   }
 
-  const townsPart = line.slice(0, bracketIndex).trim();
+  const townsPart = (bracketIndex === -1 ? line : line.slice(0, bracketIndex)).trim();
   if (!townsPart) {
     return [];
   }
@@ -43,6 +71,8 @@ export function extractTownsFromAlert(alertText) {
   if (shouldIgnoreAlertMessage(alertText)) {
     return [];
   }
+  const messageType = classifyMessageType(alertText);
+  const allowWithoutBracket = messageType === "safe_exit_update";
 
   const unique = new Set();
   const lines = alertText
@@ -55,7 +85,7 @@ export function extractTownsFromAlert(alertText) {
       continue;
     }
 
-    const towns = parseTownLine(line);
+    const towns = parseTownLine(line, { allowWithoutBracket });
     for (const town of towns) {
       if (town === "ירי רקטות וטילים" || town === "🚨 ירי רקטות וטילים") {
         continue;
@@ -76,10 +106,12 @@ function isBaseCityMatch(monitoredTown, alertTown) {
 }
 
 export function matchConfiguredTowns(alertText, monitoredTowns) {
-  if (shouldIgnoreAlertMessage(alertText)) {
+  const messageType = classifyMessageType(alertText);
+  if (messageType === "upcoming_warning") {
     return {
       alertTowns: [],
       matched: new Map(),
+      messageType,
     };
   }
 
@@ -102,5 +134,6 @@ export function matchConfiguredTowns(alertText, monitoredTowns) {
   return {
     alertTowns: normalizedAlertTowns,
     matched,
+    messageType,
   };
 }
