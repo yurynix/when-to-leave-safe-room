@@ -3,10 +3,6 @@ import { matchConfiguredTowns, shouldIgnoreAlertMessage } from "./parser.js";
 import { createTelegramGateway } from "./telegram.js";
 import { TownTimerManager } from "./timers.js";
 
-function looksLikeMojibake(text) {
-  return /[×ð]/.test(text);
-}
-
 function buildSafeMessage(town, timerMinutes, lastAlertLink) {
   const base = `אין התרעות חדשות עבור ${town} ב-${timerMinutes} הדקות האחרונות. אפשר לצאת מהמרחב המוגן.`;
   if (!lastAlertLink) {
@@ -19,7 +15,6 @@ async function main() {
   const config = loadConfig();
   const timerDurationMs = config.timerMinutes * 60 * 1000;
   const processedMessageIds = new Set();
-  let loggedEncodingWarning = false;
 
   const telegram = await createTelegramGateway(config);
   console.info(
@@ -72,12 +67,6 @@ async function main() {
     console.info(
       `[RECEIVED] #${messageId} from ${source} at ${date.toISOString()} :: ${singleLinePreview}`,
     );
-    if (!loggedEncodingWarning && looksLikeMojibake(singleLinePreview)) {
-      loggedEncodingWarning = true;
-      console.error(
-        `[ENCODING] Incoming message #${messageId} appears mojibake. Check VPS locale (LANG/LC_ALL=C.UTF-8) and restart process.`,
-      );
-    }
 
     if (shouldIgnoreAlertMessage(text)) {
       console.info(`[FILTER] #${messageId} skipped (upcoming-warning bulletin)`);
@@ -130,12 +119,6 @@ async function main() {
     `Listening for alerts from "${telegram.sourceChannelMeta.resolvedSourceChannel}" and notifying "${config.targetChatIds.join(", ")}"`,
   );
   console.info(`Monitored towns: ${config.monitoredTowns.join(", ")}`);
-  if (!loggedEncodingWarning && config.monitoredTowns.some((town) => looksLikeMojibake(town))) {
-    loggedEncodingWarning = true;
-    console.error(
-      "[ENCODING] MONITORED_TOWNS looks mojibake. Ensure VPS process runs with LANG/LC_ALL=C.UTF-8 and .env is UTF-8.",
-    );
-  }
   console.info(`Quiet window timer: ${config.timerMinutes} minute(s)`);
   console.info(
     `Past-alert replay: ${config.fetchPastAlertsOnStart ? "enabled" : "disabled"} (lookback: ${config.pastAlertsMinutes}m)`,
