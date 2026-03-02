@@ -4,7 +4,7 @@ import { createTelegramGateway } from "./telegram.js";
 import { TownTimerManager } from "./timers.js";
 
 function buildSafeMessage(town, timerMinutes, lastAlertLink) {
-  const base = `אין התרעות חדשות עבור ${town} ב-${timerMinutes} הדקות האחרונות. אפשר לצאת מהמרחב המוגן.`;
+  const base = `אין התרעות חדשות עבור ${town} ב-${timerMinutes} הדקות האחרונות.`;
   if (!lastAlertLink) {
     return base;
   }
